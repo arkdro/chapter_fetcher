@@ -207,11 +207,16 @@ def delay(args):
     time.sleep(args.delay)
 
 
+def last_page(url):
+    return re.search(r'javascript:;', url, re.I)
+
 def run(args):
     create_out_dir(args.out_dir)
     next_url = args.initial_url
     for i in range(args.first, args.last + 1):
         next_url = process_one_chapter(args, next_url, i)
+        if last_page(next_url):
+            break
         delay(args)
 
 
