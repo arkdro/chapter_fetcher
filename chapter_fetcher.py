@@ -4,6 +4,7 @@ import argparse
 import os.path
 import re
 import requests
+import time
 
 
 def build_filename(idx):
@@ -127,11 +128,41 @@ def fetch_one_chapter(args, url, i):
         raise ("Http error", r)
 
 
+def extract_next_url(text):
+    second_half = re.search(r'\bchapter-title\b(.*)', text, re.S | re.I | re.M)
+    if second_half:
+        g1 = second_half.group(1)
+        middle_part = re.search(r'(.*)\bchapter-container\b', g1, re.S | re.I | re.M)
+        if middle_part:
+            g2 = middle_part.group(1)
+            a_tag = re.search(r'<(a[^<>]*title=[^<>]*"Next\s*Chapter"[^<>]*)>', g2, re.S | re.I | re.M)
+            if a_tag:
+                g3 = a_tag.group(1)
+                href_part=re.search(r'\bhref\s*=\s*["\'](\S*)["\']', g3, re.S | re.I | re.M)
+                if href_part:
+                    next_url = href_part.group(1)
+    return next_url
+
+
+def build_out_file_name(args, i):
+    return f'{args.out_dir}/p-{i:03d}.html'
+
+
+def create_out_dir(dir):
+    os.makedirs(dir, exist_ok=True)
+
+
+def write_one_chapter(args, i, data):
+    out_file = build_out_file_name(args, i)
+    with open(out_file, "w") as fd:
+        fd.write(data)
+
+
 def process_one_chapter(args, url, i):
     data = fetch_one_chapter(args, url, i)
     next_url = extract_next_url(data)
-    cleaned_data = sub_one(args, data, i)
-    write_one_chapter(args, i)
+    #cleaned_data = sub_one(args, data, i)
+    write_one_chapter(args, i, data)
     return next_url
 
 
@@ -142,6 +173,7 @@ def get_initial_args():
     parser.add_argument('--first', type=int, help='first page')
     parser.add_argument('--last', type=int, help='last page')
     parser.add_argument('--out_dir', help='output directory', default='output')
+    parser.add_argument('--delay', type=float, help='delay after fetching every page')
     args = parser.parse_args()
     return args
 
@@ -150,7 +182,7 @@ def build_initial_url(args):
     return (
             "https://" +
             args.host +
-            "/novel/" +
+            "/book/" +
             args.title +
             "/chapter-" +
             str(args.first)
@@ -167,15 +199,23 @@ def get_args():
     parser.add_argument('--first', type=int, help='first page', default=initial_args.first)
     parser.add_argument('--last', type=int, help='last page', default=initial_args.last)
     parser.add_argument('--out_dir', help='output directory', default=initial_args.out_dir)
+    parser.add_argument('--delay', type=float, help='delay after fetching every page',
+                        default=initial_args.delay)
     args = parser.parse_args()
     return args
 
 
+def delay(args):
+    time.sleep(args.delay)
+
+
 def run():
     args = get_args()
+    create_out_dir(args.out_dir)
     next_url = args.initial_url
-    for i in range(args.first, args.last):
+    for i in range(args.first, args.last + 1):
         next_url = process_one_chapter(args, next_url, i)
+        delay(args)
 
 
 run()
