@@ -12,6 +12,11 @@ def build_filename(idx):
     return res
 
 
+def build_full_out_file_name(dir, i):
+    file_name = build_filename(i)
+    return f'{dir}/{file_name}'
+
+
 def find_filler_id(text):
     found = re.search(br"<style>\s*([^<>]*)\s*{[^<>]*</style>", text, re.S | re.I | re.M)
     if found is None:
@@ -38,20 +43,18 @@ def replace_ad_links(data):
 def replace_prev_page(idx, data):
     prev_idx = idx - 1
     filename = build_filename(prev_idx)
-    prev_replace = f"\\1\"{filename}\"\\2".encode('ascii')
-    res = re.sub(
-        br"(<a href=)[^<> ]*([^<>]*>[^<>]*<div[^<>]*>[^<>]*<button[^<>]*>[^<>]*<div[^<>]*>[^<>]*<span[^<>]*>[^<>]*<div[^<>]*>[^<>]*(?:<[^<>]*>)?[^<>]*Previous Chapter)",
-        prev_replace, data, re.I | re.S | re.M)
+    replacement = f"\\1{filename}\\2".encode('utf-8')
+    res = re.sub(rb'(<a\s+title\s*=\s*["\']Previous Chapter["\'][^<>]*\bhref=["\'])[^<>"\']+(["\'][^<>]*>)',
+                 replacement, data, re.S | re.I | re.M)
     return res
 
 
 def replace_next_page(idx, data):
     next_idx = idx + 1
     filename = build_filename(next_idx)
-    next_replace = f"\\1\"{filename}\"\\2".encode('ascii')
-    res = re.sub(
-        br"(<a href=)[^<> ]*([^<>]*>[^<>]*<div[^<>]*>[^<>]*<button[^<>]*>[^<>]*<div[^<>]*>[^<>]*<span[^<>]*>[^<>]*<div[^<>]*>[^<>]*(?:<[^<>]*>)?[^<>]*Next Chapter)",
-        next_replace, data, re.I | re.S | re.M)
+    replacement = f'\\1{filename}\\2'.encode('utf-8')
+    res = re.sub(rb'(<a\s+title\s*=\s*["\']Next Chapter["\'][^<>]*\bhref=["\'])[^<>"\']+(["\'][^<>]*>)',
+                 replacement, data, re.S | re.I | re.M)
     return res
 
 
@@ -89,17 +92,8 @@ def make_out_dir(indir):
     return out_dir
 
 
-def sub_one(idx, indir):
-    in_filename = build_filename(idx)
-    f1 = f"{indir}/{in_filename}"
-    if not os.path.isfile(f1):
-        return
-    out_dir = make_out_dir(indir)
-    f2 = f"{out_dir}/{in_filename}"
-    d1 = b""
-    with open(f1, "rb") as fd:
-        d1 = fd.read()
-
+def sub_one_data(data, idx):
+    d1 = data
     d2 = remove_filler(d1)
     d3 = replace_ad_banner(d2)
     d4 = replace_prev_page(idx, d3)
@@ -109,9 +103,13 @@ def sub_one(idx, indir):
     d8 = remove_spacer1(d7)
     d9 = remove_spacer2(d8)
     d10 = replace_ad_links(d9)
+    return d10
 
-    with open(f2, "wb") as fd:
-        fd.write(d10)
+
+def sub_one(data, idx):
+    binary_data = data.encode('utf-8')
+    res = sub_one_data(binary_data, idx)
+    return res
 
 
 def fetch_one_chapter(args, url, i):
@@ -144,25 +142,21 @@ def extract_next_url(text):
     return next_url
 
 
-def build_out_file_name(args, i):
-    return f'{args.out_dir}/p-{i:03d}.html'
-
-
 def create_out_dir(dir):
     os.makedirs(dir, exist_ok=True)
 
 
 def write_one_chapter(args, i, data):
-    out_file = build_out_file_name(args, i)
-    with open(out_file, "w") as fd:
+    out_file = build_full_out_file_name(args.out_dir, i)
+    with open(out_file, "wb") as fd:
         fd.write(data)
 
 
 def process_one_chapter(args, url, i):
     data = fetch_one_chapter(args, url, i)
     next_url = extract_next_url(data)
-    #cleaned_data = sub_one(args, data, i)
-    write_one_chapter(args, i, data)
+    cleaned_data = sub_one(data, i)
+    write_one_chapter(args, i, cleaned_data)
     return next_url
 
 
