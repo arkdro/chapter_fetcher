@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import logging
 import os.path
 import re
 import requests
@@ -153,6 +154,7 @@ def write_one_chapter(args, i, data):
 
 
 def process_one_chapter(args, url, i):
+    logging.info(f'processing chapter: {i}, {url}')
     data = fetch_one_chapter(args, url, i)
     next_url = extract_next_url(data)
     cleaned_data = sub_one(data, i)
@@ -162,12 +164,13 @@ def process_one_chapter(args, url, i):
 
 def get_initial_args():
     parser = argparse.ArgumentParser(description='Process some dirs.')
+    parser.add_argument('--debug', help='debug level', default='info')
     parser.add_argument('--host', help='host')
     parser.add_argument('--title', help='title as in url')
     parser.add_argument('--first', type=int, help='first page')
     parser.add_argument('--last', type=int, help='last page')
     parser.add_argument('--out_dir', help='output directory', default='output')
-    parser.add_argument('--delay', type=float, help='delay after fetching every page')
+    parser.add_argument('--delay', type=float, help='delay after fetching every page', default=1.0)
     args = parser.parse_args()
     return args
 
@@ -187,6 +190,7 @@ def get_args():
     initial_args = get_initial_args()
     initial_url = build_initial_url(initial_args)
     parser = argparse.ArgumentParser(description='Process some dirs.')
+    parser.add_argument('--debug', help='debug level', default=initial_args.debug)
     parser.add_argument('--initial_url', help='initial url', default=initial_url)
     parser.add_argument('--host', help='host', default=initial_args.host)
     parser.add_argument('--title', help='title as in url', default=initial_args.title)
@@ -203,8 +207,7 @@ def delay(args):
     time.sleep(args.delay)
 
 
-def run():
-    args = get_args()
+def run(args):
     create_out_dir(args.out_dir)
     next_url = args.initial_url
     for i in range(args.first, args.last + 1):
@@ -212,4 +215,8 @@ def run():
         delay(args)
 
 
-run()
+if __name__ == '__main__':
+    args = get_args()
+    debug_level = args.debug.upper()
+    logging.basicConfig(format='%(asctime)s %(message)s', level=debug_level)
+    run(args)
