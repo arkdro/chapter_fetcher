@@ -26,11 +26,24 @@ def find_filler_id(text):
         return found.group(1)
 
 
-def remove_filler(text):
+def remove_filler_1(text):
     filler = find_filler_id(text)
     regex = b'<' + filler + b'>' + b'[^<>]*' + b'</' + filler + b'>'
     res = re.sub(regex, b'', text, re.S | re.I | re.M)
     return res
+
+
+def remove_filler_2(text):
+    filler = find_filler_id(text)
+    regex = b'<style>' + filler + b'{[^{}<>]*}' + b'</style>'
+    res = re.sub(regex, b'', text, re.S | re.I | re.M)
+    return res
+
+
+def remove_fillers(text):
+    text2 = remove_filler_1(text)
+    text3 = remove_filler_2(text2)
+    return text3
 
 
 def replace_ad_links(data):
@@ -44,8 +57,8 @@ def replace_ad_links(data):
 def replace_prev_page(idx, data):
     prev_idx = idx - 1
     filename = build_filename(prev_idx)
-    replacement = f"\\1{filename}\\2".encode('utf-8')
-    res = re.sub(rb'(<a\s+title\s*=\s*["\']Previous Chapter["\'][^<>]*\bhref=["\'])[^<>"\']+(["\'][^<>]*>)',
+    replacement = f"\\1{filename}\\3 [ \\2 ] ".encode('utf-8')
+    res = re.sub(rb'(<a\s+title\s*=\s*["\'](Previous Chapter)["\'][^<>]*\bhref=["\'])[^<>"\']+(["\'][^<>]*>)',
                  replacement, data, re.S | re.I | re.M)
     return res
 
@@ -53,8 +66,8 @@ def replace_prev_page(idx, data):
 def replace_next_page(idx, data):
     next_idx = idx + 1
     filename = build_filename(next_idx)
-    replacement = f'\\1{filename}\\2'.encode('utf-8')
-    res = re.sub(rb'(<a\s+title\s*=\s*["\']Next Chapter["\'][^<>]*\bhref=["\'])[^<>"\']+(["\'][^<>]*>)',
+    replacement = f'\\1{filename}\\3 [ \\2 ] '.encode('utf-8')
+    res = re.sub(rb'(<a\s+title\s*=\s*["\'](Next Chapter)["\'][^<>]*\bhref=["\'])[^<>"\']+(["\'][^<>]*>)',
                  replacement, data, re.S | re.I | re.M)
     return res
 
@@ -95,7 +108,7 @@ def make_out_dir(indir):
 
 def sub_one_data(data, idx):
     d1 = data
-    d2 = remove_filler(d1)
+    d2 = remove_fillers(d1)
     d3 = replace_ad_banner(d2)
     d4 = replace_prev_page(idx, d3)
     d5 = replace_next_page(idx, d4)
